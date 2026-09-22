@@ -1,0 +1,23 @@
+{
+  "_note": "Asset inventory. Slide 16 enriches cloud.instance.id -> asset via an 'enrich' processor with an enrich policy. OpenSearch has NO enrich processor and no _enrich/policy API (that is an Elasticsearch feature) - see docs/SLIDE-VS-REALITY.md. This index is the source of truth; bin/bootstrap.py compiles it into the params of the pipeline's asset-owner script processor, which applies it at write time (note the map is built from the generator's deterministic inventory, so the pipeline is correct before this index is even populated), and the triage agent's SearchIndexTool reads it directly at query time.",
+  "settings": {
+    "index.number_of_shards": 1,
+    "index.number_of_replicas": 0,
+    "index.refresh_interval": "1s"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "cloud": { "properties": { "instance": { "properties": { "id": { "type": "keyword" } } } } },
+      "asset": {
+        "properties": {
+          "owner": { "type": "keyword" },
+          "team": { "type": "keyword" },
+          "criticality": { "type": "keyword" }
+        }
+      },
+      "gen_ai": { "properties": { "agent": { "properties": { "id": { "type": "keyword" } } } } },
+      "task": { "properties": { "type": { "type": "keyword" } } }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "_note": "Slide 24. Requires plugins.ml_commons.trusted_connector_endpoints_regex to allow the Bedrock runtime host - bin/bootstrap.py sets it before creating this. Credentials are substituted from .env; nothing secret is committed.",
+  "name": "bedrock-claude-sec-triage",
+  "description": "Bedrock Claude for the sec-triage agent (Chasing shadows demo)",
+  "version": 1,
+  "protocol": "aws_sigv4",
+  "credential": {
+    "access_key": "__AWS_ACCESS_KEY_ID__",
+    "secret_key": "__AWS_SECRET_ACCESS_KEY__",
+    "session_token": "__AWS_SESSION_TOKEN__"
+  },
+  "parameters": {
+    "region": "__AWS_REGION__",
+    "service_name": "bedrock",
+    "model": "__BEDROCK_MODEL_ID__",
+    "anthropic_version": "bedrock-2023-05-31",
+    "max_tokens": 4096,
+    "temperature": 0
+  },
+  "actions": [
+    {
+      "action_type": "predict",
+      "method": "POST",
+      "headers": { "content-type": "application/json" },
+      "url": "https://bedrock-runtime.${parameters.region}.amazonaws.com/model/${parameters.model}/invoke",
+      "request_body": "{ \"anthropic_version\": \"${parameters.anthropic_version}\", \"max_tokens\": ${parameters.max_tokens}, \"temperature\": ${parameters.temperature}, \"messages\": ${parameters.messages} }"
+    }
+  ]
+}

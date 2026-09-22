@@ -1,0 +1,48 @@
+{
+  "_note": "Slide 29. Retention policy is a security decision with a price tag attached. Attached via ism_template rather than the deprecated index-level policy_id setting. The cold state needs a registered snapshot repository - run 'make snapshot-repo' first, or bootstrap will warn and leave the policy in place with the cold transition unusable.",
+  "policy": {
+    "description": "Chasing shadows: hot -> warm -> cold -> delete for security logs and agent traces",
+    "default_state": "hot",
+    "ism_template": [
+      {
+        "index_patterns": ["traces-agent-*", "logs-sec-*"],
+        "priority": 100
+      }
+    ],
+    "states": [
+      {
+        "name": "hot",
+        "_note": "0-3 days. Raw spans and flows on NVMe. Segment replication means primaries stopped paying twice for indexing.",
+        "actions": [],
+        "transitions": [{ "state_name": "warm", "conditions": { "min_index_age": "3d" } }]
+      },
+      {
+        "name": "warm",
+        "_note": "3-30 days. Segments already live in the remote store, so a lost warm node is a restore, not a re-ingest.",
+        "actions": [
+          { "replica_count": { "number_of_replicas": 0 } },
+          { "force_merge": { "max_num_segments": 1 } }
+        ],
+        "transitions": [{ "state_name": "cold", "conditions": { "min_index_age": "30d" } }]
+      },
+      {
+        "name": "cold",
+        "_note": "30-90 days at roughly 12% of volume: identity, DNS, cloud audit and the agent rollup. Everything else is deleted on day 30.",
+        "actions": [
+          {
+            "snapshot": {
+              "repository": "s3-sec",
+              "snapshot": "sec-snapshot"
+            }
+          }
+        ],
+        "transitions": [{ "state_name": "delete", "conditions": { "min_index_age": "90d" } }]
+      },
+      {
+        "name": "delete",
+        "actions": [{ "delete": {} }],
+        "transitions": []
+      }
+    ]
+  }
+}

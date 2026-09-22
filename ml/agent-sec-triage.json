@@ -1,0 +1,41 @@
+{
+  "_note": "Slide 24. Read-only tools only: there is no revoke tool and no write tool anywhere in this list, which is the point of slide 31 ('Letting the triage agent act: 0'). llm.parameters.response_filter is required for a conversational agent and is model-specific - $.content[0].text is the Bedrock Anthropic Messages shape.",
+  "name": "sec-triage",
+  "type": "conversational",
+  "app_type": "rag",
+  "description": "Triages an agent-egress finding the way a human would: pace, blast radius, API delta, owner. Recommends. Never revokes.",
+  "llm": {
+    "model_id": "__MODEL_ID__",
+    "parameters": {
+      "max_iteration": 6,
+      "stop_when_no_tool_found": true,
+      "response_filter": "$.content[0].text"
+    }
+  },
+  "memory": { "type": "conversation_index" },
+  "tools": [
+    {
+      "type": "PPLTool",
+      "name": "ppl_tool",
+      "description": "Translate a question about agent traces or security logs into PPL and run it. Use for pacing, blast radius and API-delta questions.",
+      "parameters": {
+        "model_id": "__MODEL_ID__",
+        "model_type": "CLAUDE",
+        "execute": true,
+        "index": "traces-agent-demo",
+        "head": 20
+      }
+    },
+    {
+      "type": "SearchAnomalyResultsTool",
+      "name": "anomaly_results_tool",
+      "description": "Fetch anomaly-detection results, including per-entity grades, for the agent-egress-pace detector."
+    },
+    {
+      "type": "SearchIndexTool",
+      "name": "asset_owner_tool",
+      "description": "Look up the owning team and criticality for a cloud instance or agent id in the asset-owner index.",
+      "parameters": { "index": "asset-owner" }
+    }
+  ]
+}

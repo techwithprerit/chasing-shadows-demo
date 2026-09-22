@@ -1,0 +1,62 @@
+{
+  "_note": "TWO SIZING NOTES BEFORE YOU CHANGE ANYTHING HERE. The composite size must exceed the (agent, host) cardinality in the window - on the stage profile that is ~990 pairs, and patient zero sorts around rank 550, so a size of 200 silently pages it out of the first result set. And the window is 2h rather than the slide's 1h because the metronome runs at 2 calls a minute: with a 1h window and a _count > 60 threshold, the alert stops firing ~30 minutes after you load the data. 2h buys about 90 minutes of drift, and benign agents still only reach ~6 fetches per (agent, host) pair in that time. Slide 22, corrected in three further places. (1) A bucket_level_trigger condition requires BOTH buckets_path and parent_bucket_path - the slide omits them and the monitor will not save without them. (2) The slide counts spans with value_count on 'spanId', but slide 14 sets doc_values:false on trace.spanId precisely so it is never aggregated; params._count from the composite bucket is free and correct. (3) The volume threshold. See docs/SLIDE-VS-REALITY.md item 7: at 4 KB every 30 seconds this agent moves ~492 KB an hour, which is why slide 3 says the volume sat inside the daily quota. Thresholding on 5e7 bytes would never fire. The signal is the flat line, not the volume - which is the thesis of the talk, so the condition should say so.",
+  "type": "monitor",
+  "name": "Steady egress from an agent to one host",
+  "monitor_type": "bucket_level_monitor",
+  "enabled": true,
+  "schedule": { "period": { "interval": 5, "unit": "MINUTES" } },
+  "inputs": [
+    {
+      "search": {
+        "indices": ["traces-agent-*"],
+        "query": {
+          "size": 0,
+          "query": {
+            "bool": {
+              "filter": [
+                { "range": { "@timestamp": { "gte": "now-2h", "lte": "now" } } },
+                { "term": { "gen_ai.tool.name": "http_fetch" } }
+              ]
+            }
+          },
+          "aggregations": {
+            "pair": {
+              "composite": {
+                "size": 2000,
+                "sources": [
+                  { "agent": { "terms": { "field": "gen_ai.agent.id" } } },
+                  { "host": { "terms": { "field": "url.domain" } } }
+                ]
+              },
+              "aggregations": {
+                "out": { "sum": { "field": "http.request.body.size" } },
+                "cv": { "avg": { "field": "agent.pace_cv" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "bucket_level_trigger": {
+        "name": "flat-line",
+        "severity": "1",
+        "condition": {
+          "parent_bucket_path": "pair",
+          "buckets_path": {
+            "_count": "_count",
+            "out": "out",
+            "cv": "cv"
+          },
+          "script": {
+            "lang": "painless",
+            "source": "params._count > 60 && params.cv < 0.10 && params.out > 200000"
+          }
+        },
+        "actions": []
+      }
+    }
+  ]
+}

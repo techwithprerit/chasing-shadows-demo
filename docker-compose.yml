@@ -1,0 +1,68 @@
+# Chasing shadows with OpenSearch — demo stack
+#
+# Single-node cluster sized for a laptop on stage. Security plugin is disabled
+# by default so nothing on stage depends on a password or a self-signed cert;
+# set SECURITY=enabled in .env if you want the TLS/auth path instead.
+#
+#   docker compose up -d
+#   curl localhost:9200
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:${OPENSEARCH_VERSION:-3.1.0}
+    container_name: cs-opensearch
+    environment:
+      - cluster.name=chasing-shadows
+      - node.name=cs-node-1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms${HEAP:-2g} -Xmx${HEAP:-2g}"
+      # Demo default: no security plugin. Everything speaks plain HTTP on 9200.
+      - DISABLE_SECURITY_PLUGIN=${DISABLE_SECURITY_PLUGIN:-true}
+      - DISABLE_INSTALL_DEMO_CONFIG=${DISABLE_SECURITY_PLUGIN:-true}
+      # Only read when the security plugin is on (OpenSearch >= 2.12 requires it).
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_PASSWORD:-Ch4singSh4dows!2026}
+      # ML Commons on a single node: without this, model deployment fails
+      # because there is no dedicated ML node to place the model on.
+      - plugins.ml_commons.only_run_on_ml_node=false
+      - plugins.ml_commons.native_memory_threshold=99
+      # Lets the ISM cold state actually run against a local repository
+      # (make snapshot-repo) instead of only looking good on a slide.
+      - path.repo=/usr/share/opensearch/snapshots
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - os-data:/usr/share/opensearch/data
+      - os-snapshots:/usr/share/opensearch/snapshots
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    healthcheck:
+      # `|| exit 1` keeps this working on both the HTTP and HTTPS variants.
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf -k -u admin:${OPENSEARCH_PASSWORD:-Ch4singSh4dows!2026} http://localhost:9200/_cluster/health || curl -sf -k -u admin:${OPENSEARCH_PASSWORD:-Ch4singSh4dows!2026} https://localhost:9200/_cluster/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+
+  dashboards:
+    image: opensearchproject/opensearch-dashboards:${OPENSEARCH_VERSION:-3.1.0}
+    container_name: cs-dashboards
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    environment:
+      - OPENSEARCH_HOSTS=${DASHBOARDS_OPENSEARCH_HOSTS:-["http://opensearch:9200"]}
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=${DISABLE_SECURITY_PLUGIN:-true}
+      - SERVER_HOST=0.0.0.0
+    ports:
+      - "5601:5601"
+
+volumes:
+  os-data:
+  os-snapshots:

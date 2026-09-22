@@ -1,0 +1,41 @@
+{
+  "_note": "Slide 21. Runs verbatim against the Transform target index because the transform names its output fields to match. category_field gives one RCF model per agent (~1 MB each; 212 fits in a coordinator's heap, 20,000 is a cardinality budget you pay for in plugins.anomaly_detection.model_max_size_percent). shingle_size 8 x 10 minutes means the model sees an 80-minute shape, so a metronome is anomalous even when its volume is not. Reading the 1-minute rollup rather than raw spans is the same detection at a sixtieth of the I/O.",
+  "name": "agent-egress-pace",
+  "description": "Per-agent egress shape: bytes out, tool-call rate, pacing regularity, token burn",
+  "time_field": "@timestamp",
+  "indices": ["agent-metrics-1m"],
+  "detection_interval": { "period": { "interval": 10, "unit": "Minutes" } },
+  "window_delay": { "period": { "interval": 2, "unit": "Minutes" } },
+  "shingle_size": 8,
+  "category_field": ["gen_ai.agent.id"],
+  "feature_attributes": [
+    {
+      "feature_name": "bytes_out",
+      "feature_enabled": true,
+      "aggregation_query": {
+        "bytes_out": { "sum": { "field": "http.request.body.size.sum" } }
+      }
+    },
+    {
+      "feature_name": "tool_calls",
+      "feature_enabled": true,
+      "aggregation_query": {
+        "tool_calls": { "sum": { "field": "tool_calls.value_count" } }
+      }
+    },
+    {
+      "feature_name": "pace_cv",
+      "feature_enabled": true,
+      "aggregation_query": {
+        "pace_cv": { "min": { "field": "agent.pace_cv.min" } }
+      }
+    },
+    {
+      "feature_name": "tokens_per_call",
+      "feature_enabled": true,
+      "aggregation_query": {
+        "tokens_per_call": { "avg": { "field": "agent.tokens_per_call.avg" } }
+      }
+    }
+  ]
+}

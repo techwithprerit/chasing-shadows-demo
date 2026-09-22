@@ -1,0 +1,140 @@
+{
+  "_note": "Slides 12/13/14. dynamic:strict is the security control - one agent framework's free-form metadata cannot quietly add 400 fields. Index sort is agent-then-time so per-agent hunts read contiguous blocks and the codec compresses runs of identical IDs to almost nothing. Every _note key in this repo is stripped by bin/bootstrap.py before the payload is sent.",
+  "index_patterns": ["traces-agent-*"],
+  "data_stream": {},
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index.codec": "__CODEC__",
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 0,
+      "index.refresh_interval": "10s",
+      "index.sort.field": ["gen_ai.agent.id", "@timestamp"],
+      "index.sort.order": ["asc", "desc"],
+      "index.mapping.total_fields.limit": 400,
+      "index.default_pipeline": "sec-normalise"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "event": {
+          "properties": {
+            "dataset": { "type": "keyword" },
+            "action": { "type": "keyword" },
+            "outcome": { "type": "keyword" }
+          }
+        },
+        "trace": {
+          "properties": {
+            "id": { "type": "keyword" },
+            "spanId": { "type": "keyword", "doc_values": false }
+          }
+        },
+        "session": { "properties": { "id": { "type": "keyword" } } },
+        "task": { "properties": { "type": { "type": "keyword" } } },
+
+        "gen_ai": {
+          "properties": {
+            "operation": { "properties": { "name": { "type": "keyword" } } },
+            "agent": { "properties": { "id": { "type": "keyword", "eager_global_ordinals": true } } },
+            "tool": {
+              "properties": {
+                "name": { "type": "keyword" },
+                "input": {
+                  "properties": {
+                    "document": { "type": "text", "index": false, "doc_values": false }
+                  }
+                }
+              }
+            },
+            "request": { "properties": { "model": { "type": "keyword" } } },
+            "usage": {
+              "properties": {
+                "input_tokens": { "type": "long" },
+                "output_tokens": { "type": "long" }
+              }
+            },
+            "prompt": { "type": "text", "index": false, "doc_values": false }
+          }
+        },
+
+        "agent": {
+          "properties": {
+            "inter_call_gap_ms": { "type": "long" },
+            "recent_gaps_ms": { "type": "long", "index": false, "doc_values": false },
+            "pace_cv": { "type": "float" },
+            "tool_rate": { "type": "float" },
+            "tokens_per_call": { "type": "float" }
+          }
+        },
+
+        "context": { "properties": { "hash": { "type": "keyword" } } },
+
+        "url": {
+          "properties": {
+            "full": { "type": "keyword", "doc_values": false },
+            "domain": { "type": "keyword" },
+            "path": { "type": "keyword", "doc_values": false },
+            "novelty": { "type": "float" }
+          }
+        },
+        "http": {
+          "properties": {
+            "request": {
+              "properties": {
+                "method": { "type": "keyword" },
+                "body": {
+                  "_note": "Slide 14 shows http.request.body as {enabled:false}. That would also disable http.request.body.size, which slides 18/21/22 aggregate on. Keep body an ordinary object: size is a real long, content is stored-but-not-indexed.",
+                  "properties": {
+                    "size": { "type": "long" },
+                    "content": { "type": "text", "index": false, "doc_values": false }
+                  }
+                }
+              }
+            },
+            "response": { "properties": { "status_code": { "type": "short" } } }
+          }
+        },
+        "status": { "type": "keyword" },
+
+        "source": { "properties": { "ip": { "type": "ip" } } },
+        "destination": {
+          "properties": {
+            "ip": { "type": "ip" },
+            "port": { "type": "integer" },
+            "asn": { "type": "keyword" },
+            "domain": { "type": "keyword" }
+          }
+        },
+        "network": {
+          "properties": {
+            "bytes": { "type": "long" },
+            "transport": { "type": "keyword" },
+            "iana_number": { "type": "keyword" },
+            "community_id": { "type": "keyword" }
+          }
+        },
+        "flow": { "properties": { "id": { "type": "keyword" } } },
+
+        "cloud": {
+          "properties": {
+            "instance": { "properties": { "id": { "type": "keyword" } } },
+            "role": { "properties": { "session": { "type": "keyword" } } },
+            "region": { "type": "keyword" },
+            "account": { "properties": { "id": { "type": "keyword" } } }
+          }
+        },
+        "asset": {
+          "properties": {
+            "owner": { "type": "keyword" },
+            "team": { "type": "keyword" },
+            "criticality": { "type": "keyword" }
+          }
+        },
+
+        "message": { "type": "text", "norms": false, "index_options": "docs" }
+      }
+    }
+  }
+}

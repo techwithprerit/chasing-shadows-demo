@@ -1,0 +1,36 @@
+# Slide 20. Rewritten into valid Sigma: there is no |notin modifier, so the
+# allow-list is a second selection negated in the condition.
+#
+# Field names here are deliberately NOT the index field paths. Security
+# Analytics implements rule fields as index ALIASES, and an alias may not share
+# a name with an existing field - so the rule speaks ToolName/Operation and
+# detection/security-analytics/field-mappings.json points those at
+# gen_ai.tool.name / gen_ai.operation.name.
+title: Agent tool call outside harness policy
+id: 7c1e0a94-0f2b-4d51-9a6e-3f9c1b2d4e60
+status: experimental
+description: >
+  An agent invoked a tool that is not on the harness allow-list. The harness is
+  the only thing that decides what an agent may do; a call outside that set means
+  either the policy drifted or the agent is being driven by text nobody reviewed.
+author: Prerit Munjal
+date: 2026/03/17
+logsource:
+  product: agent
+  service: trace
+detection:
+  selection:
+    Operation: execute_tool
+  allowed_tools:
+    ToolName:
+      - read_file
+      - write_file
+      - git_push
+      - http_fetch
+  condition: selection and not allowed_tools
+falsepositives:
+  - A tool was added to the harness without the allow-list being updated.
+level: high
+tags:
+  - attack.execution
+  - attack.t1059

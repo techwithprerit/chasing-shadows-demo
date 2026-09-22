@@ -1,0 +1,5 @@
+.env
+data/
+.demo-state.json
+__pycache__/
+*.pyc

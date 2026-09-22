@@ -1,0 +1,101 @@
+{
+  "_note": "Slide 12, extended. The slide shows the core seven fields; a strict mapping has to name every field the pipeline actually produces, so CloudTrail / DNS / VPC-flow specifics are spelled out here. One vocabulary across all three: agent.id means the same thing in a flow log and in a gen_ai span.",
+  "index_patterns": ["logs-sec-*"],
+  "data_stream": {},
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index.codec": "__CODEC__",
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 0,
+      "index.refresh_interval": "10s",
+      "index.sort.field": ["agent.id", "@timestamp"],
+      "index.sort.order": ["asc", "desc"],
+      "index.mapping.total_fields.limit": 400,
+      "index.default_pipeline": "sec-normalise"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "event": {
+          "properties": {
+            "dataset": { "type": "keyword" },
+            "action": { "type": "keyword" },
+            "outcome": { "type": "keyword" },
+            "provider": { "type": "keyword" }
+          }
+        },
+        "agent": { "properties": { "id": { "type": "keyword", "eager_global_ordinals": true } } },
+        "session": { "properties": { "id": { "type": "keyword" } } },
+
+        "source": {
+          "properties": {
+            "ip": { "type": "ip" },
+            "port": { "type": "integer" }
+          }
+        },
+        "destination": {
+          "properties": {
+            "ip": { "type": "ip" },
+            "port": { "type": "integer" },
+            "asn": { "type": "keyword" },
+            "domain": { "type": "keyword" }
+          }
+        },
+        "network": {
+          "properties": {
+            "bytes": { "type": "long" },
+            "packets": { "type": "long" },
+            "transport": { "type": "keyword" },
+            "iana_number": { "type": "keyword" },
+            "community_id": { "type": "keyword" },
+            "direction": { "type": "keyword" }
+          }
+        },
+        "flow": { "properties": { "id": { "type": "keyword" } } },
+
+        "dns": {
+          "properties": {
+            "question": {
+              "properties": {
+                "name": { "type": "keyword" },
+                "type": { "type": "keyword" }
+              }
+            },
+            "entropy": { "type": "float" },
+            "label_len": { "type": "integer" },
+            "resolved_ip": { "type": "ip" }
+          }
+        },
+
+        "cloud": {
+          "properties": {
+            "instance": { "properties": { "id": { "type": "keyword" } } },
+            "role": { "properties": { "session": { "type": "keyword" } } },
+            "region": { "type": "keyword" },
+            "account": { "properties": { "id": { "type": "keyword" } } },
+            "service": { "properties": { "name": { "type": "keyword" } } }
+          }
+        },
+        "user_agent": { "properties": { "original": { "type": "keyword", "doc_values": false } } },
+        "asset": {
+          "properties": {
+            "owner": { "type": "keyword" },
+            "team": { "type": "keyword" },
+            "criticality": { "type": "keyword" }
+          }
+        },
+        "aws": {
+          "properties": {
+            "error_code": { "type": "keyword" },
+            "mfa_authenticated": { "type": "boolean" },
+            "request_parameters": { "type": "text", "index": false, "doc_values": false }
+          }
+        },
+
+        "message": { "type": "text", "norms": false, "index_options": "docs" }
+      }
+    }
+  }
+}

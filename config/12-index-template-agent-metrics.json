@@ -1,0 +1,62 @@
+{
+  "_note": "Target index for the 1-minute agent rollup that the anomaly detector reads (slide 18/21). NOT a data stream: an Index Transform target must be an ordinary index. Field names here are chosen to match the aggregation names on slide 21 exactly, so the detector payload on that slide runs verbatim. See docs/SLIDE-VS-REALITY.md for why this repo uses Transform rather than Index Rollup.",
+  "index_patterns": ["agent-metrics-*"],
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index.codec": "__CODEC__",
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 0,
+      "index.refresh_interval": "5s"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "gen_ai": {
+          "properties": {
+            "agent": { "properties": { "id": { "type": "keyword", "eager_global_ordinals": true } } },
+            "tool": { "properties": { "name": { "type": "keyword" } } },
+            "usage": {
+              "properties": {
+                "output_tokens": { "properties": { "sum": { "type": "double" } } }
+              }
+            }
+          }
+        },
+        "http": {
+          "properties": {
+            "request": {
+              "properties": {
+                "body": {
+                  "properties": {
+                    "size": {
+                      "properties": {
+                        "sum": { "type": "double" },
+                        "max": { "type": "double" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "agent": {
+          "properties": {
+            "pace_cv": {
+              "properties": {
+                "avg": { "type": "double" },
+                "min": { "type": "double" }
+              }
+            },
+            "tokens_per_call": { "properties": { "avg": { "type": "double" } } }
+          }
+        },
+        "tool_calls": { "properties": { "value_count": { "type": "double" } } },
+        "url": { "properties": { "domain": { "properties": { "cardinality": { "type": "double" } } } } },
+        "asset": { "properties": { "team": { "type": "keyword" } } }
+      }
+    }
+  }
+}

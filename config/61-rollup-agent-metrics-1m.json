@@ -1,0 +1,43 @@
+{
+  "_note": "Slide 18 verbatim (target index renamed so it cannot collide with the Transform output the demo actually uses). Apply with: python3 bin/bootstrap.py --with-rollup. Read docs/SLIDE-VS-REALITY.md item 4 before you demo this: the target index stores internal field names ('@timestamp.date_histogram', 'gen_ai.agent.id.terms', 'http.request.body.size.sum'), avg is decomposed into sum + value_count, and the plugin installs a search interceptor so you query it with the ORIGINAL field names. Hand-written queries against the internal names bypass the rewriter and return wrong or empty results.",
+  "rollup": {
+    "enabled": true,
+    "source_index": "traces-agent-*",
+    "target_index": "agent-metrics-1m-rollup",
+    "schedule": {
+      "interval": { "period": 10, "unit": "Minutes", "start_time": 1757289600000 }
+    },
+    "description": "Agent telemetry rolled to 1-minute buckets after 24h",
+    "page_size": 1000,
+    "delay": 0,
+    "continuous": false,
+    "dimensions": [
+      {
+        "date_histogram": {
+          "source_field": "@timestamp",
+          "fixed_interval": "1m"
+        }
+      },
+      { "terms": { "source_field": "gen_ai.agent.id" } },
+      { "terms": { "source_field": "gen_ai.tool.name" } }
+    ],
+    "metrics": [
+      {
+        "source_field": "gen_ai.usage.output_tokens",
+        "metrics": [{ "sum": {} }]
+      },
+      {
+        "source_field": "http.request.body.size",
+        "metrics": [{ "sum": {} }, { "max": {} }, { "value_count": {} }]
+      },
+      {
+        "source_field": "agent.pace_cv",
+        "metrics": [{ "avg": {} }, { "min": {} }]
+      },
+      {
+        "source_field": "agent.tokens_per_call",
+        "metrics": [{ "avg": {} }]
+      }
+    ]
+  }
+}

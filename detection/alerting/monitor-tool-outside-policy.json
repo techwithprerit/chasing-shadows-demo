@@ -1,0 +1,68 @@
+{
+  "_note": "Stage insurance. Security Analytics custom detectors depend on a three-step setup (rule -> field aliases -> detector) and on aliases landing correctly on data-stream backing indices; if any of that misbehaves five minutes before you present, this query-level monitor produces the same finding from the same data with no plugin ceremony. bin/demo.py falls back to it automatically. It is also the honest answer to 'do I need Security Analytics for this?' - no, you need the rule.",
+  "type": "monitor",
+  "name": "Agent tool call outside harness policy (fallback)",
+  "monitor_type": "query_level_monitor",
+  "enabled": true,
+  "schedule": { "period": { "interval": 1, "unit": "MINUTES" } },
+  "inputs": [
+    {
+      "search": {
+        "indices": ["traces-agent-*"],
+        "query": {
+          "size": 5,
+          "query": {
+            "bool": {
+              "filter": [
+                { "range": { "@timestamp": { "gte": "now-24h", "lte": "now" } } },
+                { "term": { "gen_ai.operation.name": "execute_tool" } }
+              ],
+              "should": [
+                {
+                  "bool": {
+                    "must_not": [
+                      {
+                        "terms": {
+                          "gen_ai.tool.name": ["read_file", "write_file", "git_push", "http_fetch"]
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "bool": {
+                    "filter": [
+                      { "term": { "http.request.method": "POST" } },
+                      { "prefix": { "url.path": "/health" } }
+                    ]
+                  }
+                }
+              ],
+              "minimum_should_match": 1
+            }
+          },
+          "aggregations": {
+            "by_agent": {
+              "terms": { "field": "gen_ai.agent.id", "size": 10 }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "triggers": [
+    {
+      "query_level_trigger": {
+        "name": "tool-outside-policy",
+        "severity": "1",
+        "condition": {
+          "script": {
+            "lang": "painless",
+            "source": "ctx.results[0].hits.total.value > 0"
+          }
+        },
+        "actions": []
+      }
+    }
+  ]
+}

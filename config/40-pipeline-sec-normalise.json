@@ -1,0 +1,92 @@
+{
+  "_note": "Slide 16, corrected to what OpenSearch actually ships. Two changes from the slide: (1) there is no 'enrich' processor in OpenSearch, so asset ownership is applied by the generated stored script 'asset-owner-lookup'; (2) the fingerprint processor takes 'hash_method' with a version-suffixed value ('SHA-1@2.16.0'), not 'method': 'SHA-1'. Enrichment is cheap here at write time and ruinous at query time.",
+  "description": "Normalise and enrich security logs and agent traces (Chasing shadows demo)",
+  "processors": [
+    {
+      "community_id": {
+        "_note": "OpenSearch 2.13+. bin/bootstrap.py checks _nodes/ingest and swaps this for a fingerprint-based flow key if the processor is unavailable.",
+        "source_ip_field": "source.ip",
+        "destination_ip_field": "destination.ip",
+        "source_port_field": "source.port",
+        "destination_port_field": "destination.port",
+        "protocol_field": "network.transport",
+        "target_field": "network.community_id",
+        "ignore_missing": true,
+        "ignore_failure": true,
+        "if": "ctx.source?.ip != null && ctx.destination?.ip != null"
+      }
+    },
+    {
+      "script": {
+        "id": "shannon-entropy",
+        "if": "ctx.event?.dataset == 'dns'",
+        "ignore_failure": true
+      }
+    },
+    {
+      "script": {
+        "id": "agent-pace-cv",
+        "if": "ctx.gen_ai?.operation?.name == 'execute_tool'",
+        "ignore_failure": true
+      }
+    },
+    {
+      "script": {
+        "id": "tokens-per-call",
+        "if": "ctx.gen_ai?.usage != null",
+        "ignore_failure": true
+      }
+    },
+    {
+      "script": {
+        "_note": "Stands in for slide 16's enrich processor, which OpenSearch does not have. The asset inventory is compiled into this processor's params by bin/bootstrap.py from the asset-owner index, so ownership is still resolved once at write time rather than joined at query time. Re-run bootstrap when the inventory changes; in production you would regenerate this pipeline from your CMDB on a schedule, or carry ownership on the span from the collector.",
+        "lang": "painless",
+        "if": "ctx.cloud?.instance?.id != null",
+        "params": { "owners": "__ASSET_OWNERS__" },
+        "source": "def rec = params.owners.get(ctx.cloud.instance.id); if (rec == null) { return; } if (ctx.asset == null) { ctx.asset = new HashMap(); } ctx.asset.owner = rec[0]; ctx.asset.team = rec[1]; ctx.asset.criticality = rec[2];",
+        "ignore_failure": true
+      }
+    },
+    {
+      "fingerprint": {
+        "_note": "flow.id - one identifier for a conversation between two endpoints, so a pivot across every IP an attacker rotates through is a term query.",
+        "fields": ["source.ip", "destination.ip", "destination.port"],
+        "target_field": "flow.id",
+        "hash_method": "SHA-1@2.16.0",
+        "ignore_missing": true,
+        "ignore_failure": true,
+        "if": "ctx.source?.ip != null && ctx.destination?.ip != null"
+      }
+    },
+    {
+      "fingerprint": {
+        "_note": "context.hash - fingerprint of the fetched document. One term query lists every agent that ingested the same poison. This is the field that turned a six-hour incident into a 52-minute one.",
+        "fields": ["gen_ai.tool.input.document"],
+        "target_field": "context.hash",
+        "hash_method": "SHA-1@2.16.0",
+        "ignore_missing": true,
+        "ignore_failure": true,
+        "if": "ctx.gen_ai?.tool?.input?.document != null"
+      }
+    },
+    {
+      "drop": {
+        "_note": "Drop what no detector reads. Sub-64-byte flow records are keepalives.",
+        "if": "ctx.event?.dataset == 'vpcflow' && ctx.network?.bytes != null && ctx.network.bytes < 64"
+      }
+    },
+    {
+      "drop": {
+        "_note": "Successful chat spans that produced almost nothing are the bulk of the agent firehose and no detector reads them.",
+        "if": "ctx.gen_ai?.operation?.name == 'chat' && ctx.status == 'OK' && ctx.gen_ai?.usage?.output_tokens != null && ctx.gen_ai.usage.output_tokens < 50"
+      }
+    },
+    {
+      "remove": {
+        "_note": "Store the projection, not the prompt (slide 18). The window of gaps existed only to produce pace_cv; the fetched document existed only to produce context.hash. Both leave before the document is written - the body lives in sec-context-docs, keyed by that hash. Remove the whole gen_ai.tool.input OBJECT, not just the .document leaf: removing the leaf leaves an empty {} behind in _source, which looks like the body is still there.",
+        "field": ["agent.recent_gaps_ms", "gen_ai.tool.input"],
+        "ignore_missing": true
+      }
+    }
+  ]
+}

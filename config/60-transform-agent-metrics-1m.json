@@ -1,0 +1,48 @@
+{
+  "_note": "The 1-minute agent rollup the detectors read (slide 18: 'roll up, then delete raw'). This repo uses Index Transform rather than Index Rollup for one reason: a Transform lets you NAME every output field, so the aggregation names below match slide 21's detector payload exactly and the detector runs verbatim. A Rollup target index uses internal names (gen_ai.agent.id.terms, http.request.body.size.sum) and relies on a search interceptor to rewrite queries - fine for hand-written searches, fragile for a plugin reading the index directly. The slide-faithful rollup job is in 61-rollup-agent-metrics-1m.json.",
+  "transform": {
+    "enabled": true,
+    "continuous": false,
+    "schedule": {
+      "interval": { "period": 1, "unit": "Minutes", "start_time": 1757289600000 }
+    },
+    "description": "Per-agent, per-tool, per-minute security metrics for the agent-egress-pace detector",
+    "source_index": "traces-agent-*",
+    "target_index": "agent-metrics-1m",
+    "data_selection_query": {
+      "term": { "gen_ai.operation.name": "execute_tool" }
+    },
+    "page_size": 1000,
+    "groups": [
+      {
+        "date_histogram": {
+          "source_field": "@timestamp",
+          "target_field": "@timestamp",
+          "fixed_interval": "1m"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "gen_ai.agent.id",
+          "target_field": "gen_ai.agent.id"
+        }
+      },
+      {
+        "terms": {
+          "source_field": "gen_ai.tool.name",
+          "target_field": "gen_ai.tool.name"
+        }
+      }
+    ],
+    "aggregations": {
+      "http.request.body.size.sum": { "sum": { "field": "http.request.body.size" } },
+      "http.request.body.size.max": { "max": { "field": "http.request.body.size" } },
+      "gen_ai.usage.output_tokens.sum": { "sum": { "field": "gen_ai.usage.output_tokens" } },
+      "agent.pace_cv.avg": { "avg": { "field": "agent.pace_cv" } },
+      "agent.pace_cv.min": { "min": { "field": "agent.pace_cv" } },
+      "agent.tokens_per_call.avg": { "avg": { "field": "agent.tokens_per_call" } },
+      "tool_calls.value_count": { "value_count": { "field": "gen_ai.tool.name" } },
+      "url.domain.cardinality": { "cardinality": { "field": "url.domain" } }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "_note": "Slide 13: agent.tokens_per_call - 'token burn divided by tool calls; exfil is cheap in tokens'. A compromised agent doing bulk POSTs shows a collapsing token-to-byte ratio, which is what makes this field worth its bytes.",
+  "script": {
+    "lang": "painless",
+    "source": "def usage = ctx.gen_ai?.usage; if (usage == null) { return; } double inTok = usage.input_tokens == null ? 0 : ((Number) usage.input_tokens).doubleValue(); double outTok = usage.output_tokens == null ? 0 : ((Number) usage.output_tokens).doubleValue(); if (ctx.agent == null) { ctx.agent = new HashMap(); } ctx.agent.tokens_per_call = inTok + outTok;"
+  }
+}

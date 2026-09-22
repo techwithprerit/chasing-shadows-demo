@@ -1,0 +1,7 @@
+{
+  "_note": "Slide 17. Twelve lines of Painless in place of a licensed tunnelling-detection module. Rewritten from the slide to avoid Map.merge with a lambda, which is brittle across Painless versions; the maths is identical. Tunnelling becomes a range query on dns.entropy instead of a regex somebody has to maintain.",
+  "script": {
+    "lang": "painless",
+    "source": "String n = ctx.dns?.question?.name; if (n == null) { return; } String[] parts = n.splitOnToken('.'); if (parts.length == 0) { return; } String label = parts[0]; int len = label.length(); if (len == 0) { return; } Map f = new HashMap(); for (int i = 0; i < len; i++) { String c = label.substring(i, i + 1); if (f.containsKey(c)) { f.put(c, ((int) f.get(c)) + 1); } else { f.put(c, 1); } } double h = 0.0; double dlen = (double) len; for (def v : f.values()) { double p = ((Number) v).doubleValue() / dlen; h -= p * Math.log(p) / Math.log(2); } ctx.dns.entropy = h; ctx.dns.label_len = len;"
+  }
+}

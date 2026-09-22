@@ -1,0 +1,32 @@
+{
+  "_note": "Stand-in for the object storage described on slide 18: 'Prompts go to object storage under context.hash. The index keeps the hash, the tool, the URL and the numbers.' One document per distinct fetched artefact, keyed by context.hash, so the Dashboards drilldown can go finding -> trace -> the README that started it without keeping document bodies in the hot trace index.",
+  "settings": {
+    "index.number_of_shards": 1,
+    "index.number_of_replicas": 0,
+    "index.refresh_interval": "1s"
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "@timestamp": { "type": "date" },
+      "context": { "properties": { "hash": { "type": "keyword" } } },
+      "url": {
+        "properties": {
+          "full": { "type": "keyword" },
+          "domain": { "type": "keyword" }
+        }
+      },
+      "doc": {
+        "properties": {
+          "title": { "type": "keyword" },
+          "content": { "type": "text" },
+          "bytes": { "type": "long" },
+          "suspicious_span": { "type": "text" },
+          "verdict": { "type": "keyword" }
+        }
+      },
+      "first_seen": { "type": "date" },
+      "fetched_by_count": { "type": "integer" }
+    }
+  }
+}

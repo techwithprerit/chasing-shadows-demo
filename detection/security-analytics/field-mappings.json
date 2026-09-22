@@ -1,0 +1,17 @@
+{
+  "_note": "Mandatory step between creating custom rules and creating the detector. Without it the detector matches nothing - it is the single most common reason a custom Security Analytics detector looks broken. Aliases must not collide with existing field names, which is why the Sigma rules use ToolName rather than gen_ai.tool.name. index_name is filled in by bin/detect.py with the concrete backing index, because aliases are applied per index and traces-agent-demo is a data stream.",
+  "index_name": "__INDEX__",
+  "rule_topic": "others_application",
+  "partial": true,
+  "alias_mappings": {
+    "properties": {
+      "Operation": { "type": "alias", "path": "gen_ai.operation.name" },
+      "ToolName": { "type": "alias", "path": "gen_ai.tool.name" },
+      "AgentId": { "type": "alias", "path": "gen_ai.agent.id" },
+      "HttpMethod": { "type": "alias", "path": "http.request.method" },
+      "UrlPath": { "type": "alias", "path": "url.path" },
+      "UrlDomain": { "type": "alias", "path": "url.domain" },
+      "ContextHash": { "type": "alias", "path": "context.hash" }
+    }
+  }
+}
